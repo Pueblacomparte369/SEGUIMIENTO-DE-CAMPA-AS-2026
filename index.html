@@ -6,13 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seguimiento de Campañas - SIMULADOR 2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f9fb;
-        }
-        .campaign-card {
+    // ----------------------------------------------------------------
+// CONFIGURACIÓN DE POWER AUTOMATE / SHAREPOINT (Back-end)
+// ----------------------------------------------------------------
+
+let campaignsData = {}; 
+
+// 🚨 1. TUS URLS DE POWER AUTOMATE AQUÍ 
+const API_URLS = {
+    GET_ALL: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2121deecc6d84f588d61ac5ab56e2772/triggers/manual/paths/invoke?api-version=1", 
+    POST_CREATE: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/325f819809aa46e0a9b0200a623f5cb9/triggers/manual/paths/invoke?api-version=1",
+    PATCH_UPDATE: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b45ee2aafb43407eb468a9423179c462/triggers/manual/paths/invoke?api-version=1"
+};
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
             transition: transform 0.2s;
         }
@@ -104,60 +109,66 @@
             <div class="flex justify-end">
                 <button onclick="document.getElementById('alert-modal').classList.add('hidden', 'opacity-0'); document.getElementById('alert-modal').classList.remove('opacity-100');"
                         class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition">Aceptar</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="kilos-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden opacity-0 z-50">
-        <div class="modal-container bg-white rounded-lg p-6 shadow-xl w-full max-w-md mx-4" onclick="event.stopPropagation()">
-            <h3 id="kilos-modal-title" class="text-xl font-bold text-gray-900 mb-4">Transición a Cierre: [Nombre Campaña]</h3>
-            <form id="kilos-form">
-                <input type="hidden" id="kilos-campaign-id">
-                <input type="hidden" id="kilos-next-phase">
-                <div class="mb-4">
-                    <label for="campaign-kilos-input" class="block text-sm font-medium text-gray-700">Total de Kilos Recolectados *</label>
-                    <input type="number" step="0.01" min="0" id="campaign-kilos-input" required class="mt-1 p-2 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
-                <div class="mb-6">
-                    <label for="campaign-kilos-comment" class="block text-sm font-medium text-gray-700">Nota de Cierre (Opcional)</label>
-                    <textarea id="campaign-kilos-comment" rows="2" class="mt-1 p-2 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+// ----------------------------------------------------------------
+// [2] FUNCIÓN DE LECTURA (Reemplaza loadCampaigns de localStorage)
+// ----------------------------------------------------------------
+const loadCampaigns = async () => {
+    try {
+        // Llama a tu flujo GET
+        const response = await fetch(API_URLS.GET_ALL);
+        if (!response.ok) throw new Error("Error al cargar datos de SharePoint.");
+        
+        // Asumiendo que el flujo devuelve un objeto con la propiedad 'value' (lista de elementos)
+        const data = await response.json(); 
+        
+        campaignsData = transformSharePointData(data.value); 
+        
+    } catch (error) {
+        console.error("Error al cargar campañas:", error);
+        alertModal("Error de Conexión", "No se pudieron cargar las campañas. Revisa la URL y los permisos del Flujo 1.");
+    } finally {
+        renderAllCampaigns(); 
+    }
+};
                 </div>
                 <div class="flex justify-end space-x-3">
                     <button type="button" onclick="document.getElementById('kilos-modal').classList.add('hidden', 'opacity-0'); document.getElementById('kilos-modal').classList.remove('opacity-100');"
                             class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancelar</button>
                     <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition">
                         Cerrar Campaña
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+                   // ----------------------------------------------------------------
+// [3] FUNCIÓN CENTRAL DE ACTUALIZACIÓN (Para avance de fase y cierre)
+// ----------------------------------------------------------------
+const updateCampaignStatus = async (spId, newStatus, comment = '', kilos = 0) => {
+    const dataToSend = {
+        id: parseInt(spId), // El ID de SharePoint debe ser un número
+        newStatus: newStatus,
+        comment: comment,
+        kilos: kilos 
+    };
 
-    <div id="advance-comment-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden opacity-0 z-50">
-        <div class="modal-container bg-white rounded-lg p-6 shadow-xl w-full max-w-md mx-4" onclick="event.stopPropagation()">
-            <h3 id="advance-comment-modal-title" class="text-xl font-bold text-gray-900 mb-2">Avanzar a: [Fase]</h3>
-            <p class="text-sm text-gray-500 mb-4">Campaña: <span id="advance-campaign-name-display" class="font-medium text-indigo-600"></span></p>
-            <form id="advance-comment-form">
-                <input type="hidden" id="advance-campaign-id">
-                <input type="hidden" id="advance-next-phase">
-                <div class="mb-6">
-                    <label for="advance-comment-input" class="block text-sm font-medium text-gray-700">Nota Logística/Comentario (Opcional)</label>
-                    <textarea id="advance-comment-input" rows="3" placeholder="Ej: Contenedores entregados sin problema. El arranque será el lunes." class="mt-1 p-2 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"></textarea>
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" onclick="document.getElementById('advance-comment-modal').classList.add('hidden', 'opacity-0'); document.getElementById('advance-comment-modal').classList.remove('opacity-100');"
-                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancelar</button>
-                    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
-                        Confirmar Avance
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+    try {
+        const response = await fetch(API_URLS.PATCH_UPDATE, {
+            method: 'POST', // Los flujos de Power Automate usan POST para el PATCH
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSend)
+        });
 
-    <div id="edit-date-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden opacity-0 z-50">
-        <div class="modal-container bg-white rounded-lg p-6 shadow-xl w-full max-w-md mx-4" onclick="event.stopPropagation()">
-            <h3 id="edit-date-modal-title" class="text-xl font-bold text-gray-900 mb-4">Editar Fecha de: [Fase]</h3>
+        if (!response.ok) throw new Error("Error al actualizar la campaña en SharePoint.");
+        
+        // Recargar los datos para que el cambio se refleje
+        await loadCampaigns(); 
+        return true;
+
+    } catch (error) {
+        console.error("Error de actualización:", error);
+        alertModal("Error de Actualización", "Hubo un problema al actualizar la fase/kilos. Revisa el Flujo 3.");
+        return false;
+    }
+};
+Por esta nueva función (Actualización local en la List):
+
+JavaScript    
             <form id="edit-date-form">
                 <input type="hidden" id="edit-campaign-id">
                 <input type="hidden" id="edit-phase-name">
@@ -186,56 +197,42 @@
 
 let campaignsData = {}; 
 
-// 🚨 1. TUS URLS DE POWER AUTOMATE AQUÍ 
-const API_URLS = {
-    GET_ALL: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2121deecc6d84f588d61ac5ab56e2772/triggers/manual/paths/invoke?api-version=1", 
-    POST_CREATE: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/325f819809aa46e0a9b0200a623f5cb9/triggers/manual/paths/invoke?api-version=1",
-    PATCH_UPDATE: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b45ee2aafb43407eb468a9423179c462/triggers/manual/paths/invoke?api-version=1"
-};
+// [4] Agregar Campaña (Reemplaza la lógica de localStorage)
+document.getElementById('add-campaign-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-        const saveCampaigns = () => {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(campaignsData));
-            renderAllCampaigns();
-        };
+    // ... (Captura de valores)
 
-        // ----------------------------------------------------------------
-        // Definición y Utilerías
-        // ----------------------------------------------------------------
-        const PHASES = [
-            'Inicio de Campaña',
-            'Entrega de contenedores',
-            'Arranque',
-            '1RA Recolección',
-            'Última Recolección',
-            'Cierre'
-        ];
+    // El formato JSON debe coincidir exactamente con el JSON Schema de tu Flujo 2
+    const dataToSend = {
+        name,
+        contact,
+        phone: phone.replace(/[^0-9+]/g, ''),
+        location,
+        comments
+    };
 
-        const generateId = () => 'camp-' + Date.now() + Math.random().toString(16).slice(2);
+    try {
+        // Llama a tu flujo POST
+        const response = await fetch(API_URLS.POST_CREATE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSend)
+        });
 
-        const getPhaseDate = (campaign, phaseName) => {
-            const phaseData = campaign.phases && campaign.phases[phaseName];
-            if (phaseData) {
-                return typeof phaseData === 'string' ? phaseData : phaseData.date;
-            }
-            return null;
-        };
+        if (!response.ok) throw new Error("Error al crear campaña en SharePoint.");
+        
+        // Si tiene éxito, recarga los datos para que aparezca la nueva campaña
+        await loadCampaigns();
+        
+        e.target.reset();
+        alertModal("Campaña Agregada", `La campaña "${name}" ha sido iniciada y guardada en Microsoft Lists.`);
 
-        const calculateDuration = (startDate, endDate) => {
-            const start = new Date(startDate);
-            const end = endDate ? new Date(endDate) : new Date();
-            const diffTime = Math.abs(end - start);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays;
-        };
-
-        const pad = (n) => (n < 10 ? '0' + n : n);
-        const formatDateTime = (date) => {
-            return date.getUTCFullYear() +
-                    pad(date.getUTCMonth() + 1) +
-                    pad(date.getUTCDate()) + 'T' +
-                    pad(date.getUTCHours()) +
-                    pad(date.getUTCMinutes()) +
-                    pad(date.getUTCSeconds()) + 'Z';
+    } catch (error) {
+        console.error("Error al crear campaña:", error);
+        alertModal("Error de Creación", "Hubo un problema al guardar la campaña. Revisa el Flujo 2.");
+    }
+});
         };
         
         // ----------------------------------------------------------------
@@ -1489,3 +1486,4 @@ const API_URLS = {
     </script>
 </body>
 </html>
+
