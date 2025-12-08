@@ -181,18 +181,17 @@
     </div>
 
     <script>
-        // ----------------------------------------------------------------
-        // Almacenamiento Local (Simulación de Base de Datos)
-        // ----------------------------------------------------------------
-        const STORAGE_KEY = 'campaigns_simulator_data';
-        let campaignsData = {}; 
+    // CONFIGURACIÓN DE POWER AUTOMATE / SHAREPOINT (Back-end)
+// ----------------------------------------------------------------
 
-        const loadCampaigns = () => {
-            const storedData = localStorage.getItem(STORAGE_KEY);
-            if (storedData) {
-                campaignsData = JSON.parse(storedData);
-            }
-        };
+let campaignsData = {}; 
+
+// 🚨 1. TUS URLS DE POWER AUTOMATE AQUÍ 
+const API_URLS = {
+    GET_ALL: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2121deecc6d84f588d61ac5ab56e2772/triggers/manual/paths/invoke?api-version=1", 
+    POST_CREATE: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/325f819809aa46e0a9b0200a623f5cb9/triggers/manual/paths/invoke?api-version=1",
+    PATCH_UPDATE: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b45ee2aafb43407eb468a9423179c462/triggers/manual/paths/invoke?api-version=1"
+};
 
         const saveCampaigns = () => {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(campaignsData));
