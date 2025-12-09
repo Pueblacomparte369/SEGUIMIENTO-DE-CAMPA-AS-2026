@@ -6,6 +6,8 @@
     <title>Seguimiento de Campañas - SIMULADOR 2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
 
+            <link rel="icon" type="image/png" href="Logo_PC_Vectores-02 (3).png">
+    
                 <style>
         .campaign-card {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
@@ -91,7 +93,7 @@
         </div>
     </div>
 
-            <div id="alert-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden opacity-0 z-50"
+        <div id="alert-modal" class="modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden opacity-0 z-50"
          onclick="this.classList.add('hidden', 'opacity-0'); this.classList.remove('opacity-100');">
         <div class="modal-container bg-white rounded-lg p-6 shadow-xl w-full max-w-sm mx-4" onclick="event.stopPropagation()">
             <h3 id="alert-modal-title" class="text-lg font-bold text-gray-900 mb-3">Título</h3>
@@ -103,8 +105,8 @@
         </div>
     </div>
     
-                    <script>
-    // CONFIGURACIÓN DE POWER AUTOMATE / SHAREPOINT (Bloque 14-30 y variables de apoyo)
+                <script>
+    // CONFIGURACIÓN DE POWER AUTOMATE / SHAREPOINT 
     // ----------------------------------------------------------------
 
     let campaignsData = {}; 
@@ -116,10 +118,10 @@
         PATCH_UPDATE: "https://default766718c896324ea7994391931c2503.98.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b45ee2aafb43407eb468a9423179c462/triggers/manual/paths/invoke?api-version=1"
     };
 
-    // Fases asumidas, necesarias para la lógica del código
+    // FASES ASUMIDAS (Ajusta si son diferentes)
     const PHASES = ['Inicio de Campaña', 'Diseño', 'Instalación', 'Última Recolección', 'Cierre'];
 
-    // Funciones de Utilidad (que estaban faltando)
+    // Funciones de Utilidad (Necesarias para el resto de tu código)
     const pad = (num) => (num < 10 ? '0' : '') + num;
     const formatDateTime = (date) => date.toISOString().replace(/[-:.]/g, '').replace('T', '').slice(0, 15) + 'Z';
     const calculateDuration = (start, end) => {
@@ -129,27 +131,33 @@
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     };
     const getPhaseDate = (campaign, phaseName) => campaign.phases && campaign.phases[phaseName] ? campaign.phases[phaseName].date : null;
+        
+    // 💡 IMPORTANTE: Ajusta estos nombres de columna para que coincidan con tu Microsoft List
     const transformSharePointData = (dataArray) => {
         const transformed = {};
         dataArray.forEach(item => {
+            // Asume que el JSON de tu flujo tiene una propiedad 'value' que es un array.
+            // item.ID es el ID de SharePoint, crítico para la actualización.
             transformed[item.ID] = {
-                id: item.ID.toString(), // Usamos el ID de SharePoint como ID
-                name: item.Title,
-                contact: item.Contacto, // Reemplaza con el nombre de columna real de SharePoint
-                phone: item.Telefono, // Reemplaza con el nombre de columna real de SharePoint
-                location: item.Ubicacion, // Reemplaza con el nombre de columna real de SharePoint
-                comments: item.ComentariosIniciales, // Reemplaza con el nombre de columna real de SharePoint
-                totalKilos: item.TotalKilos || 0, // Reemplaza con el nombre de columna real
-                status: item.FaseActual, // Reemplaza con el nombre de columna real
-                startDate: item.FechaInicio, // Reemplaza con el nombre de columna real
-                endDate: item.FechaCierre, // Reemplaza con el nombre de columna real
+                id: item.ID.toString(), 
+                name: item.Title, // Nombre interno de la columna
+                contact: item.Contacto, // Nombre interno de la columna
+                phone: item.Telefono,  // Nombre interno de la columna
+                location: item.Ubicacion, // Nombre interno de la columna
+                comments: item.ComentariosIniciales, // Nombre interno de la columna
+                totalKilos: item.TotalKilos || 0, // Nombre interno de la columna
+                status: item.FaseActual, // Nombre interno de la columna
+                startDate: item.FechaInicio, // Nombre interno de la columna
+                endDate: item.FechaCierre, // Nombre interno de la columna
+                // 'FasesJson' debe ser la columna de texto/multilínea donde guardas el JSON de las fases
                 phases: item.FasesJson ? JSON.parse(item.FasesJson) : {},
             };
         });
         return transformed;
     };
 
-    // [2] FUNCIÓN DE LECTURA (Bloque 145-149 MOVido y Activado)
+
+    // [2] FUNCIÓN DE LECTURA DE DATOS (GET)
     // ----------------------------------------------------------------
     const loadCampaigns = async () => {
         try {
@@ -157,20 +165,21 @@
             if (!response.ok) throw new Error("Error al cargar datos de SharePoint.");
             
             const data = await response.json(); 
-            campaignsData = transformSharePointData(data.value); // Asume que 'value' contiene el array de elementos
+            campaignsData = transformSharePointData(data.value);
             
         } catch (error) {
             console.error("Error al cargar campañas:", error);
-            alertModal("Error de Conexión", "No se pudieron cargar las campañas. Revisa la URL y los permisos del Flujo 1.");
+            alertModal("Error de Conexión", "No se pudieron cargar las campañas. Revisa la URL y los permisos del Flujo GET (Flujo 1).");
         } finally {
             renderAllCampaigns(); 
         }
     };
 
 
-    // [3] FUNCIÓN CENTRAL DE ACTUALIZACIÓN (Bloque 155-177 MOVido y Activado)
+    // [3] FUNCIÓN CENTRAL DE ACTUALIZACIÓN (PATCH)
     // ----------------------------------------------------------------
     const updateCampaignStatus = async (spId, newStatus, comment = '', kilos = 0) => {
+        // Estos campos deben coincidir con lo que espera el Flujo 3 (PATCH_UPDATE)
         const dataToSend = {
             id: parseInt(spId), 
             newStatus: newStatus,
@@ -180,7 +189,7 @@
 
         try {
             const response = await fetch(API_URLS.PATCH_UPDATE, {
-                method: 'POST', 
+                method: 'POST', // Power Automate Trigger usa POST
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(dataToSend)
             });
@@ -191,27 +200,28 @@
 
         } catch (error) {
             console.error("Error de actualización:", error);
-            alertModal("Error de Actualización", "Hubo un problema al actualizar la fase/kilos. Revisa el Flujo 3.");
+            alertModal("Error de Actualización", "Hubo un problema al actualizar la fase/kilos. Revisa el Flujo PATCH (Flujo 3).");
             return false;
         }
     };
 
-    // [4] Agregar Campaña (Reemplaza la lógica de localStorage con Power Automate POST)
+    // [4] Agregar Campaña (POST)
     // ----------------------------------------------------------------
     document.getElementById('add-campaign-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        // Captura de valores
         const name = document.getElementById('campaign-name').value;
         const contact = document.getElementById('campaign-contact').value;
         const phone = document.getElementById('campaign-phone').value;
         const location = document.getElementById('campaign-location').value;
         const comments = document.getElementById('campaign-comments').value || 'Sin comentarios iniciales.';
 
-        // Validación de campos (copiado de tu código)
         if (!name || !contact || !phone || !location) {
             alertModal("Campos Incompletos", "Por favor, complete todos los campos obligatorios.");
             return;
         }
 
+        // El JSON enviado debe coincidir con el esquema de tu Flujo 2 (POST_CREATE)
         const dataToSend = {
             name,
             contact,
@@ -229,29 +239,38 @@
 
             if (!response.ok) throw new Error("Error al crear campaña en SharePoint.");
             await loadCampaigns();
-            
             e.target.reset();
             alertModal("Campaña Agregada", `La campaña "${name}" ha sido iniciada y guardada en Microsoft Lists.`);
 
         } catch (error) {
             console.error("Error al crear campaña:", error);
-            alertModal("Error de Creación", "Hubo un problema al guardar la campaña. Revisa el Flujo 2.");
+            alertModal("Error de Creación", "Hubo un problema al guardar la campaña. Revisa el Flujo POST (Flujo 2).");
         }
     });
 
     // ----------------------------------------------------------------
-    // Funciones de Modales, Renderizado y Lógica (Todo el JS restante)
+    // Funciones de Modales y Lógica Principal (Resto del JS)
     // ----------------------------------------------------------------
     
-    window.alertModal = (title, body) => { ... };
-    window.closeModal = (id) => { ... };
-    const renderAllCampaigns = () => { ... };
-    // ... Todo el código de renderCampaigns, advancePhase, openKilosModal,
-    // event listeners para formularios de avance/edición, y funciones de WP/ICS
-    // DEBEN ESTAR AQUÍ.
+    window.alertModal = (title, body) => {
+        const modal = document.getElementById('alert-modal');
+        document.getElementById('alert-modal-title').textContent = title;
+        document.getElementById('alert-modal-body').textContent = body;
+        modal.classList.remove('hidden', 'opacity-0');
+        modal.classList.add('opacity-100');
+    };
+
+    window.closeModal = (id) => {
+        const modal = document.getElementById(id);
+        modal.classList.add('hidden', 'opacity-0');
+        modal.classList.remove('opacity-100');
+    };
     
+    // Resto de las funciones... (Asegúrate de copiar aquí el resto de las funciones que tenías, como:
+    // renderAllCampaigns, renderCampaigns, advancePhase, openKilosModal, openAdvanceCommentModal,
+    // openEditDateModal, generateIcsForPhase, sendWhatsAppMessageForPhase, etc.)
     
-    // LLAMADA INICIAL: Carga las campañas desde SharePoint al iniciar
+    // FUNCIÓN INICIAL
     loadCampaigns();
     </script>
 
