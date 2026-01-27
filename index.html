@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seguimiento de Campañas - Local</title>
+    <title>Seguimiento de Campañas - Local & Excel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -13,7 +13,6 @@
         .phase-active { background-color: #fffbeb; color: #b45309; border-left: 4px solid #f59e0b; font-weight: 600; }
         .phase-pending { background-color: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; }
         .timeline-item { min-width: 95px; flex: 1; padding: 8px; border-radius: 8px; text-align: center; font-size: 0.65rem; }
-        /* Scrollbar suave para la línea de tiempo en móvil */
         .timeline-container::-webkit-scrollbar { height: 4px; }
         .timeline-container::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     </style>
@@ -22,37 +21,42 @@
 
     <header class="mb-8 text-center">
         <h1 class="text-3xl font-bold text-gray-800">Seguimiento de Campañas</h1>
-        <p class="text-xs text-gray-500 mt-1 italic">Almacenamiento Local Activo</p>
+        <p class="text-xs text-gray-500 mt-1 italic">Modo Local + Exportación Excel</p>
     </header>
 
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
         <h2 class="text-xl font-bold text-indigo-700 mb-4">Nueva Campaña</h2>
         <form id="campaign-form" class="space-y-3">
-            <input type="text" id="name" placeholder="Nombre de la Campaña (Ej: Navidad 2024)" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400" required>
+            <input type="text" id="name" placeholder="Nombre de la Campaña" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400" required>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input type="text" id="contact" placeholder="Contacto Principal" class="p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400" required>
                 <input type="text" id="phone" placeholder="Número de Contacto" class="p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400" required>
             </div>
             <input type="text" id="location" placeholder="Ubicación General" class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400" required>
-            <textarea id="comments" placeholder="Comentarios iniciales (opcional)..." class="w-full p-3 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 h-20"></textarea>
             <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition shadow-md">Iniciar Campaña</button>
         </form>
     </div>
 
+    <div class="mb-10">
+        <button onclick="exportarExcel()" class="w-full bg-green-600 text-white font-semibold py-2 rounded-xl hover:bg-green-700 transition flex items-center justify-center gap-2 shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+            Descargar Reporte Excel (.csv)
+        </button>
+    </div>
+
     <div id="active-list" class="space-y-6">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Campañas Activas (Pendientes)</h2>
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Campañas Activas</h2>
         </div>
 
     <script>
         const PHASES = ['Inicio de Campaña', 'Entrega de contenedores', 'Arranque', '1RA Recolección', 'Última Recolección', 'Cierre'];
-        
-        // Cargar datos del disco local (LocalStorage)
         let campaigns = JSON.parse(localStorage.getItem('campañas_data')) || [];
 
         const form = document.getElementById('campaign-form');
         const listContainer = document.getElementById('active-list');
 
-        // Función para guardar una nueva campaña
         form.onsubmit = (e) => {
             e.preventDefault();
             const newCamp = {
@@ -62,24 +66,46 @@
                 phone: document.getElementById('phone').value,
                 location: document.getElementById('location').value,
                 status: PHASES[0],
-                phases: { [PHASES[0]]: new Date().toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) }
+                phases: { [PHASES[0]]: new Date().toLocaleString('es-MX') }
             };
             campaigns.push(newCamp);
             saveAndRender();
             form.reset();
         };
 
-        // Función para avanzar de fase
         window.advance = (id) => {
             const camp = campaigns.find(c => c.id === id);
             const currentIndex = PHASES.indexOf(camp.status);
             if (currentIndex < PHASES.length - 1) {
                 const nextPhase = PHASES[currentIndex + 1];
                 camp.status = nextPhase;
-                camp.phases[nextPhase] = new Date().toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+                camp.phases[nextPhase] = new Date().toLocaleString('es-MX');
                 saveAndRender();
             }
         };
+
+        function exportarExcel() {
+            if (campaigns.length === 0) return alert("No hay datos para exportar");
+            
+            // Crear cabecera con BOM para que Excel reconozca tildes (UTF-8)
+            let csvContent = "\uFEFF"; 
+            csvContent += "Nombre de Campaña,Contacto,Teléfono,Ubicación,Estado Actual,Fecha de Inicio\n";
+            
+            campaigns.forEach(c => {
+                let fila = `"${c.name}","${c.contact}","${c.phone}","${c.location}","${c.status}","${c.phases[PHASES[0]] || ''}"`;
+                csvContent += fila + "\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Reporte_Campanas_${new Date().toLocaleDateString()}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
 
         function saveAndRender() {
             localStorage.setItem('campañas_data', JSON.stringify(campaigns));
@@ -88,10 +114,10 @@
 
         function render() {
             const activeCamps = campaigns.filter(c => c.status !== 'Cierre');
-            listContainer.innerHTML = '<h2 class="text-2xl font-bold text-gray-800 mb-4">Campañas Activas (Pendientes)</h2>';
+            listContainer.innerHTML = '<h2 class="text-2xl font-bold text-gray-800 mb-4">Campañas Activas</h2>';
             
             if (activeCamps.length === 0) {
-                listContainer.innerHTML += '<div class="bg-white p-6 rounded-xl text-center text-gray-400 italic border border-dashed border-gray-300">No hay campañas activas todavía.</div>';
+                listContainer.innerHTML += '<div class="bg-white p-6 rounded-xl text-center text-gray-400 italic border border-dashed border-gray-300">No hay campañas activas.</div>';
                 return;
             }
 
@@ -100,42 +126,28 @@
                 const nextPhase = PHASES[currentIndex + 1];
 
                 listContainer.innerHTML += `
-                    <div class="campaign-card bg-white p-5 border border-gray-200">
+                    <div class="campaign-card bg-white p-5 border border-gray-200 mb-4">
                         <div class="flex justify-between items-start mb-4">
                             <div>
                                 <h3 class="text-lg font-bold text-gray-800">${c.name}</h3>
-                                <div class="text-sm text-gray-600 mt-1">
-                                    <p><strong>Contacto:</strong> ${c.contact}</p>
-                                    <p><strong>Teléfono:</strong> ${c.phone}</p>
-                                    <p><strong>Ubicación:</strong> ${c.location}</p>
-                                </div>
+                                <p class="text-xs text-gray-500">${c.location} | ${c.contact}</p>
                             </div>
                             <span class="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-1 rounded">ACTIVA</span>
                         </div>
-                        
                         <div class="timeline-container flex gap-2 overflow-x-auto pb-3 mb-4">
                             ${PHASES.map(p => {
                                 let style = "phase-pending";
                                 if (c.phases[p]) style = "phase-complete";
                                 if (c.status === p) style = "phase-active";
-                                return `
-                                    <div class="timeline-item ${style}">
-                                        <div class="font-bold uppercase">${p.split(' ')[0]}</div>
-                                        <div>${c.phases[p] ? c.phases[p] : 'Pendiente'}</div>
-                                    </div>
-                                `;
+                                return `<div class="timeline-item ${style}"><div class="font-bold uppercase">${p.split(' ')[0]}</div><div>${c.phases[p] ? c.phases[p].split(' ')[0] : '---'}</div></div>`;
                             }).join('')}
                         </div>
-
                         <button onclick="advance(${c.id})" class="w-full border-2 border-indigo-600 text-indigo-600 font-bold py-2 rounded-lg hover:bg-indigo-50 transition text-sm">
                             Avanzar a ${nextPhase}
                         </button>
-                    </div>
-                `;
+                    </div>`;
             });
         }
-
-        // Renderizado inicial
         render();
     </script>
 </body>
