@@ -3,144 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seguimiento de Campañas - Edición Histórica</title>
+    <title>Seguimiento Operativo - Puebla Comparte</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
-        .campaign-card { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); border-radius: 1rem; transition: all 0.3s; }
-        .phase-complete { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; cursor: pointer; }
-        .phase-active { background-color: #fffbeb; color: #b45309; border-left: 4px solid #f59e0b; font-weight: 600; cursor: pointer; }
-        .phase-pending { background-color: #f3f4f6; color: #9ca3af; border: 1px solid #e5e7eb; cursor: pointer; }
-        .timeline-item { min-width: 95px; flex: 1; padding: 8px; border-radius: 8px; text-align: center; font-size: 0.65rem; }
-        .timeline-item:hover { filter: brightness(0.95); }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .camp-card { background: white; border-radius: 2rem; border: 1px solid #e2e8f0; transition: all 0.3s; position: relative; }
+        .phase-btn { min-width: 80px; flex: 1; padding: 10px 4px; border-radius: 12px; text-align: center; font-size: 0.6rem; cursor: pointer; border: 1px solid #e2e8f0; }
+        .phase-on { background: #dcfce7; color: #166534; border-color: #86efac; font-weight: 700; }
+        .phase-next { background: #eff6ff; color: #1e40af; border: 2px solid #3b82f6; font-weight: 900; }
+        .phase-off { background: #f1f5f9; color: #94a3b8; }
+        .alert-pulse { border: 2px solid #fbbf24; animation: pulse-yellow 2s infinite; }
+        @keyframes pulse-yellow { 0%, 100% { border-color: #fbbf24; } 50% { border-color: #fef3c7; } }
     </style>
 </head>
 <body class="p-4 md:p-8 max-w-2xl mx-auto">
 
-    <header class="mb-8 text-center">
-        <h1 class="text-3xl font-bold text-gray-800">📦 Control de Campañas</h1>
-        <p class="text-xs text-blue-600 mt-1 font-semibold underline">Tip: Haz clic en cualquier fecha para editarla</p>
+    <header class="mb-10 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-black tracking-tighter text-slate-900">Logística Campañas</h1>
+            <p class="text-indigo-600 font-bold text-[10px] uppercase tracking-widest">Control de Operaciones y Carga</p>
+        </div>
     </header>
 
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
-        <h2 class="text-xl font-bold text-indigo-700 mb-4">Nueva Campaña</h2>
-        <form id="campaign-form" class="space-y-3">
-            <input type="text" id="name" placeholder="Nombre de la Campaña" class="w-full p-3 border rounded-xl outline-none" required>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input type="text" id="contact" placeholder="Contacto" class="p-3 border rounded-xl outline-none" required>
-                <input type="text" id="phone" placeholder="Teléfono" class="p-3 border rounded-xl outline-none" required>
+    <div class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 mb-10">
+        <form id="op-form" class="space-y-4">
+            <input type="text" id="name" placeholder="Nombre de la Campaña / Aliado" class="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold" required>
+            <div class="grid grid-cols-2 gap-3">
+                <input type="text" id="contact" placeholder="Responsable" class="p-4 bg-slate-50 rounded-2xl outline-none text-sm">
+                <input type="text" id="loc" placeholder="Ubicación" class="p-4 bg-slate-50 rounded-2xl outline-none text-sm">
             </div>
-            <input type="text" id="location" placeholder="Ubicación" class="w-full p-3 border rounded-xl outline-none" required>
-            <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-md">Iniciar Campaña</button>
+            <button type="submit" class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-indigo-600 transition-all">INICIAR SEGUIMIENTO</button>
         </form>
     </div>
 
-    <div class="mb-10">
-        <button onclick="exportarExcel()" class="w-full bg-green-600 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2">
-            📥 Descargar Reporte Completo (.csv)
-        </button>
-    </div>
-
-    <div id="active-list" class="space-y-6 mb-12"></div>
-    <div id="history-list" class="space-y-6 opacity-90 border-t-2 border-dashed border-gray-200 pt-8"></div>
+    <div id="active-list" class="space-y-8 mb-16"></div>
+    <div id="history-list" class="space-y-8 border-t-4 border-slate-100 pt-10"></div>
 
     <script>
-        const PHASES = ['Inicio de Campaña', 'Entrega de contenedores', 'Arranque', '1RA Recolección', 'Última Recolección', 'Cierre'];
-        let campaigns = JSON.parse(localStorage.getItem('campañas_data_v2')) || [];
+        const PHASES = ['Inicio', 'Contenedores', 'Arranque', '1ra Rec.', 'Ult. Rec.', 'Cierre'];
+        let ops = JSON.parse(localStorage.getItem('puebla_ops_v3')) || [];
 
-        document.getElementById('campaign-form').onsubmit = (e) => {
+        document.getElementById('op-form').onsubmit = (e) => {
             e.preventDefault();
-            const newCamp = {
+            const now = new Date();
+            const newOp = {
                 id: Date.now(),
                 name: document.getElementById('name').value,
                 contact: document.getElementById('contact').value,
-                phone: document.getElementById('phone').value,
-                location: document.getElementById('location').value,
+                loc: document.getElementById('loc').value,
                 status: PHASES[0],
-                phases: { [PHASES[0]]: new Date().toLocaleDateString('es-MX') }
+                kilos: 0,
+                lastMove: Date.now(),
+                start: now.toISOString(),
+                end: null,
+                dates: { [PHASES[0]]: now.toLocaleDateString('es-MX') }
             };
-            campaigns.unshift(newCamp);
-            saveAndRender();
+            ops.unshift(newOp);
+            save();
             e.target.reset();
         };
 
-        // FUNCIÓN NUEVA: Permite editar cualquier fecha
         window.editDate = (id, phase) => {
-            const camp = campaigns.find(c => c.id === id);
-            const currentVal = camp.phases[phase] || "--/--/--";
-            const newDate = prompt(`Editar fecha para: ${phase}\n(Formato sugerido: DD/MM/AAAA)`, currentVal);
-            
-            if (newDate !== null) {
-                camp.phases[phase] = newDate;
-                saveAndRender();
-            }
+            const op = ops.find(o => o.id === id);
+            const current = op.dates[phase] || "--/--/--";
+            const newVal = prompt(`Editar fecha para ${phase}:`, current);
+            if(newVal) { op.dates[phase] = newVal; save(); }
         };
 
         window.advance = (id) => {
-            const camp = campaigns.find(c => c.id === id);
-            const currentIndex = PHASES.indexOf(camp.status);
-            if (currentIndex < PHASES.length - 1) {
-                const nextPhase = PHASES[currentIndex + 1];
-                camp.status = nextPhase;
-                camp.phases[nextPhase] = new Date().toLocaleDateString('es-MX');
-                saveAndRender();
+            const op = ops.find(o => o.id === id);
+            const idx = PHASES.indexOf(op.status);
+            if (idx < PHASES.length - 1) {
+                const next = PHASES[idx + 1];
+                op.status = next;
+                op.dates[next] = new Date().toLocaleDateString('es-MX');
+                op.lastMove = Date.now();
+                
+                if(next === 'Cierre') {
+                    op.kilos = prompt("Campañana Concluida. ¿Cuántos kilos se recolectaron?", "0");
+                    op.end = new Date().toISOString();
+                }
+                save();
             }
         };
 
-        function exportarExcel() {
-            let csv = "\uFEFFNombre,Contacto,Estado,Fases\n";
-            campaigns.forEach(c => {
-                csv += `"${c.name}","${c.contact}","${c.status}","${Object.entries(c.phases).map(([k,v])=>k+': '+v).join(' | ')}"\n`;
-            });
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "Reporte_Campanas_Historico.csv";
-            link.click();
+        function remove(id) {
+            if(confirm("¿Eliminar registro permanentemente?")) {
+                ops = ops.filter(o => o.id !== id);
+                save();
+            }
         }
 
-        function saveAndRender() {
-            localStorage.setItem('campañas_data_v2', JSON.stringify(campaigns));
+        function save() {
+            localStorage.setItem('puebla_ops_v3', JSON.stringify(ops));
             render();
         }
 
+        function calculateDuration(start, end) {
+            const d1 = new Date(start);
+            const d2 = new Date(end);
+            const diff = Math.abs(d2 - d1);
+            const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+            return days === 0 ? "Mismo día" : `${days} días`;
+        }
+
         function render() {
-            const activeList = document.getElementById('active-list');
-            const historyList = document.getElementById('history-list');
-            
-            activeList.innerHTML = '<h2 class="text-2xl font-bold text-gray-800 mb-4">Campañas Activas</h2>';
-            historyList.innerHTML = '<h2 class="text-xl font-bold text-gray-500 mb-4">📚 Historial (2025 - 2026)</h2>';
+            const activeContainer = document.getElementById('active-list');
+            const historyContainer = document.getElementById('history-list');
+            activeContainer.innerHTML = '<h2 class="text-xl font-black text-slate-800 mb-6 uppercase tracking-tighter">🚀 Campañas en Curso</h2>';
+            historyContainer.innerHTML = '<h2 class="text-xl font-black text-slate-400 mb-6 uppercase tracking-tighter">📂 Historial de Éxito</h2>';
 
-            campaigns.forEach(c => {
-                const isFinal = c.status === 'Cierre';
-                const currentIndex = PHASES.indexOf(c.status);
-                const nextPhase = PHASES[currentIndex + 1];
+            ops.forEach(o => {
+                const isFinal = o.status === 'Cierre';
+                const daysInactive = Math.floor((Date.now() - o.lastMove) / (1000*60*60*24));
+                const alert = (!isFinal && daysInactive >= 3) ? 'alert-pulse' : '';
 
-                const cardHtml = `
-                    <div class="campaign-card bg-white p-5 border border-gray-200 mb-4">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="text-lg font-bold">${c.name}</h3>
-                                <p class="text-xs text-gray-500">${c.location}</p>
-                            </div>
-                            <span class="text-[10px] font-bold px-2 py-1 rounded ${isFinal ? 'bg-gray-100' : 'bg-yellow-100'}">${c.status}</span>
+                const html = `
+                    <div class="camp-card p-6 shadow-xl shadow-slate-200/50 ${alert}">
+                        <button onclick="remove(${o.id})" class="absolute top-6 right-6 text-slate-300 hover:text-red-500 font-bold">✕</button>
+                        
+                        <div class="mb-6">
+                            <h3 class="text-xl font-black text-slate-900 leading-tight">${o.name}</h3>
+                            <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-1">📍 ${o.loc} | 👤 ${o.contact}</p>
                         </div>
-                        <div class="flex gap-2 overflow-x-auto pb-3 mb-4">
+
+                        <div class="flex gap-1 overflow-x-auto pb-4 mb-6">
                             ${PHASES.map(p => {
-                                let style = c.phases[p] ? "phase-complete" : (c.status === p ? "phase-active" : "phase-pending");
-                                return `
-                                    <div onclick="editDate(${c.id}, '${p}')" class="timeline-item ${style}">
-                                        <div class="font-bold uppercase text-[7px]">${p.split(' ')[0]}</div>
-                                        <div class="text-[9px]">${c.phases[p] || '---'}</div>
-                                    </div>`;
+                                let style = o.dates[p] ? "phase-on" : (o.status === p ? "phase-next" : "phase-off");
+                                return `<div onclick="editDate(${o.id}, '${p}')" class="phase-btn ${style}">
+                                            <div class="uppercase text-[6px] mb-1 tracking-tighter">${p}</div>
+                                            <div class="text-[9px]">${o.dates[p] || '--/--'}</div>
+                                        </div>`;
                             }).join('')}
                         </div>
-                        ${!isFinal ? `<button onclick="advance(${c.id})" class="w-full border-2 border-indigo-600 text-indigo-600 font-bold py-2 rounded-lg text-sm">Avanzar a ${nextPhase}</button>` : ''}
+
+                        ${isFinal ? `
+                            <div class="bg-emerald-50 border border-emerald-100 p-5 rounded-3xl">
+                                <div class="grid grid-cols-2 gap-4 text-center">
+                                    <div class="border-r border-emerald-200">
+                                        <p class="text-[9px] font-black text-emerald-600 uppercase">Duración</p>
+                                        <p class="text-lg font-black text-slate-800">${calculateDuration(o.start, o.end)}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-[9px] font-black text-emerald-600 uppercase">Recolección</p>
+                                        <p class="text-lg font-black text-slate-800">${o.kilos} Kg</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 pt-4 border-t border-emerald-100 text-[10px] text-center text-emerald-700 font-bold">
+                                    ANTECEDENTE: Campaña finalizada con éxito.
+                                </div>
+                            </div>
+                        ` : `
+                            <button onclick="advance(${o.id})" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-100 hover:bg-slate-900 transition-all text-sm tracking-widest uppercase">
+                                Avanzar a ${PHASES[PHASES.indexOf(o.status) + 1]} ➔
+                            </button>
+                            ${daysInactive >= 3 ? `<p class="text-[9px] text-center text-amber-600 font-black mt-3 animate-pulse">⚠️ ${daysInactive} DÍAS SIN MOVIMIENTO</p>` : ''}
+                        `}
                     </div>`;
 
-                if (isFinal) historyList.innerHTML += cardHtml;
-                else activeList.innerHTML += cardHtml;
+                if (isFinal) historyContainer.innerHTML += html;
+                else activeContainer.innerHTML += html;
             });
         }
         render();
