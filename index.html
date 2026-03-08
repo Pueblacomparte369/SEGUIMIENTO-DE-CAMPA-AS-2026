@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seguimiento Operativo - Puebla Comparte</title>
+    <title>Logística Campañas - Puebla Comparte</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
         .camp-card { background: white; border-radius: 2rem; border: 1px solid #e2e8f0; transition: all 0.3s; position: relative; }
-        .phase-btn { min-width: 80px; flex: 1; padding: 10px 4px; border-radius: 12px; text-align: center; font-size: 0.6rem; cursor: pointer; border: 1px solid #e2e8f0; }
+        .phase-btn { min-width: 80px; flex: 1; padding: 10px 4px; border-radius: 12px; text-align: center; font-size: 0.6rem; cursor: pointer; border: 1px solid #e2e8f0; transition: 0.2s; }
         .phase-on { background: #dcfce7; color: #166534; border-color: #86efac; font-weight: 700; }
         .phase-next { background: #eff6ff; color: #1e40af; border: 2px solid #3b82f6; font-weight: 900; }
         .phase-off { background: #f1f5f9; color: #94a3b8; }
@@ -17,12 +17,17 @@
         @keyframes pulse-yellow { 0%, 100% { border-color: #fbbf24; } 50% { border-color: #fef3c7; } }
     </style>
 </head>
-<body class="p-4 md:p-8 max-w-2xl mx-auto">
+<body class="p-4 md:p-8 max-w-2xl mx-auto pb-20">
 
     <header class="mb-10 flex justify-between items-center">
         <div>
             <h1 class="text-3xl font-black tracking-tighter text-slate-900">Logística Campañas</h1>
-            <p class="text-indigo-600 font-bold text-[10px] uppercase tracking-widest">Control de Operaciones y Carga</p>
+            <p class="text-indigo-600 font-bold text-[10px] uppercase tracking-widest">Control Operativo de Carga</p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="exportarBackup()" title="Copia de Seguridad" class="p-3 bg-white border rounded-2xl shadow-sm hover:bg-slate-50 text-slate-600">💾</button>
+            <button onclick="document.getElementById('importInput').click()" title="Importar Datos" class="p-3 bg-white border rounded-2xl shadow-sm hover:bg-slate-50 text-slate-600">📂</button>
+            <input type="file" id="importInput" class="hidden" accept=".json" onchange="importarBackup(event)">
         </div>
     </header>
 
@@ -33,7 +38,7 @@
                 <input type="text" id="contact" placeholder="Responsable" class="p-4 bg-slate-50 rounded-2xl outline-none text-sm">
                 <input type="text" id="loc" placeholder="Ubicación" class="p-4 bg-slate-50 rounded-2xl outline-none text-sm">
             </div>
-            <button type="submit" class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-indigo-600 transition-all">INICIAR SEGUIMIENTO</button>
+            <button type="submit" class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-indigo-600 transition-all shadow-xl">INICIAR SEGUIMIENTO</button>
         </form>
     </div>
 
@@ -44,6 +49,33 @@
         const PHASES = ['Inicio', 'Contenedores', 'Arranque', '1ra Rec.', 'Ult. Rec.', 'Cierre'];
         let ops = JSON.parse(localStorage.getItem('puebla_ops_v3')) || [];
 
+        // --- SISTEMA DE RESPALDO ---
+        function exportarBackup() {
+            if (ops.length === 0) return alert("No hay datos para exportar.");
+            const dataStr = JSON.stringify(ops);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const fileName = `Respaldo_Logistica_${new Date().toLocaleDateString()}.json`;
+            const link = document.createElement('a');
+            link.setAttribute('href', dataUri);
+            link.setAttribute('download', fileName);
+            link.click();
+        }
+
+        function importarBackup(event) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (confirm("¿Reemplazar datos actuales con este respaldo?")) {
+                        ops = imported;
+                        save();
+                    }
+                } catch (err) { alert("Archivo inválido."); }
+            };
+            reader.readAsText(event.target.files[0]);
+        }
+
+        // --- LÓGICA DE OPERACIÓN ---
         document.getElementById('op-form').onsubmit = (e) => {
             e.preventDefault();
             const now = new Date();
@@ -79,9 +111,8 @@
                 op.status = next;
                 op.dates[next] = new Date().toLocaleDateString('es-MX');
                 op.lastMove = Date.now();
-                
                 if(next === 'Cierre') {
-                    op.kilos = prompt("Campañana Concluida. ¿Cuántos kilos se recolectaron?", "0");
+                    op.kilos = prompt("Campaña Concluida. ¿Kilos totales recolectados?", "0");
                     op.end = new Date().toISOString();
                 }
                 save();
@@ -89,7 +120,7 @@
         };
 
         function remove(id) {
-            if(confirm("¿Eliminar registro permanentemente?")) {
+            if(confirm("¿Eliminar registro operativo permanentemente?")) {
                 ops = ops.filter(o => o.id !== id);
                 save();
             }
@@ -100,70 +131,50 @@
             render();
         }
 
-        function calculateDuration(start, end) {
-            const d1 = new Date(start);
-            const d2 = new Date(end);
-            const diff = Math.abs(d2 - d1);
-            const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-            return days === 0 ? "Mismo día" : `${days} días`;
-        }
-
         function render() {
-            const activeContainer = document.getElementById('active-list');
-            const historyContainer = document.getElementById('history-list');
-            activeContainer.innerHTML = '<h2 class="text-xl font-black text-slate-800 mb-6 uppercase tracking-tighter">🚀 Campañas en Curso</h2>';
-            historyContainer.innerHTML = '<h2 class="text-xl font-black text-slate-400 mb-6 uppercase tracking-tighter">📂 Historial de Éxito</h2>';
+            const active = document.getElementById('active-list');
+            const history = document.getElementById('history-list');
+            active.innerHTML = '<h2 class="text-xl font-black text-slate-800 mb-6 uppercase tracking-tighter">🚀 Campañas en Curso</h2>';
+            history.innerHTML = '<h2 class="text-xl font-black text-slate-400 mb-6 uppercase tracking-tighter italic">📂 Historial de Éxito</h2>';
 
             ops.forEach(o => {
                 const isFinal = o.status === 'Cierre';
                 const daysInactive = Math.floor((Date.now() - o.lastMove) / (1000*60*60*24));
-                const alert = (!isFinal && daysInactive >= 3) ? 'alert-pulse' : '';
+                const alertClass = (!isFinal && daysInactive >= 3) ? 'alert-pulse' : '';
 
-                const html = `
-                    <div class="camp-card p-6 shadow-xl shadow-slate-200/50 ${alert}">
-                        <button onclick="remove(${o.id})" class="absolute top-6 right-6 text-slate-300 hover:text-red-500 font-bold">✕</button>
-                        
+                const cardHtml = `
+                    <div class="camp-card p-6 shadow-xl shadow-slate-200/50 ${alertClass} mb-6">
+                        <button onclick="remove(${o.id})" class="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition">✕</button>
                         <div class="mb-6">
                             <h3 class="text-xl font-black text-slate-900 leading-tight">${o.name}</h3>
                             <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mt-1">📍 ${o.loc} | 👤 ${o.contact}</p>
                         </div>
-
                         <div class="flex gap-1 overflow-x-auto pb-4 mb-6">
                             ${PHASES.map(p => {
                                 let style = o.dates[p] ? "phase-on" : (o.status === p ? "phase-next" : "phase-off");
                                 return `<div onclick="editDate(${o.id}, '${p}')" class="phase-btn ${style}">
-                                            <div class="uppercase text-[6px] mb-1 tracking-tighter">${p}</div>
-                                            <div class="text-[9px]">${o.dates[p] || '--/--'}</div>
+                                            <div class="uppercase text-[6px] mb-1">${p}</div>
+                                            <div class="text-[9px] font-bold">${o.dates[p] || '--/--'}</div>
                                         </div>`;
                             }).join('')}
                         </div>
-
                         ${isFinal ? `
-                            <div class="bg-emerald-50 border border-emerald-100 p-5 rounded-3xl">
-                                <div class="grid grid-cols-2 gap-4 text-center">
-                                    <div class="border-r border-emerald-200">
-                                        <p class="text-[9px] font-black text-emerald-600 uppercase">Duración</p>
-                                        <p class="text-lg font-black text-slate-800">${calculateDuration(o.start, o.end)}</p>
-                                    </div>
-                                    <div>
-                                        <p class="text-[9px] font-black text-emerald-600 uppercase">Recolección</p>
-                                        <p class="text-lg font-black text-slate-800">${o.kilos} Kg</p>
-                                    </div>
+                            <div class="bg-emerald-50 p-4 rounded-2xl flex justify-between items-center border border-emerald-100">
+                                <div>
+                                    <p class="text-[9px] font-black text-emerald-600 uppercase">Éxito Final</p>
+                                    <p class="text-lg font-black text-slate-800">${o.kilos} Kg Recolectados</p>
                                 </div>
-                                <div class="mt-4 pt-4 border-t border-emerald-100 text-[10px] text-center text-emerald-700 font-bold">
-                                    ANTECEDENTE: Campaña finalizada con éxito.
-                                </div>
+                                <span class="text-2xl">🏆</span>
                             </div>
                         ` : `
-                            <button onclick="advance(${o.id})" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-100 hover:bg-slate-900 transition-all text-sm tracking-widest uppercase">
+                            <button onclick="advance(${o.id})" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl hover:bg-slate-900 transition-all text-sm tracking-widest uppercase shadow-lg">
                                 Avanzar a ${PHASES[PHASES.indexOf(o.status) + 1]} ➔
                             </button>
-                            ${daysInactive >= 3 ? `<p class="text-[9px] text-center text-amber-600 font-black mt-3 animate-pulse">⚠️ ${daysInactive} DÍAS SIN MOVIMIENTO</p>` : ''}
                         `}
                     </div>`;
 
-                if (isFinal) historyContainer.innerHTML += html;
-                else activeContainer.innerHTML += html;
+                if (isFinal) history.innerHTML += cardHtml;
+                else active.innerHTML += cardHtml;
             });
         }
         render();
