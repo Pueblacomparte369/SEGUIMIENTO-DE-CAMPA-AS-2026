@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logística Pro - Puebla Comparte</title>
+    <title>Logística Inventario - Puebla Comparte</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
     <style>
@@ -20,12 +20,12 @@
 
     <header class="mb-10 flex justify-between items-center">
         <div>
-            <h1 class="text-3xl font-black tracking-tighter text-slate-900">Logística Campañas</h1>
-            <p class="text-indigo-600 font-bold text-[10px] uppercase tracking-widest">Control de Contenedores y Carga</p>
+            <h1 class="text-3xl font-black tracking-tighter text-slate-900">Logística Puebla</h1>
+            <p class="text-indigo-600 font-bold text-[10px] uppercase tracking-widest">Control de Inventario y Carga</p>
         </div>
         <div class="flex gap-2">
-            <button onclick="exportarBackup()" title="Guardar Respaldo" class="p-3 bg-white border rounded-2xl shadow-sm hover:bg-slate-50 transition">💾</button>
-            <button onclick="document.getElementById('importInput').click()" title="Cargar Respaldo" class="p-3 bg-white border rounded-2xl shadow-sm hover:bg-slate-50 transition">📂</button>
+            <button onclick="exportarBackup()" title="Respaldo" class="p-3 bg-white border rounded-2xl shadow-sm hover:bg-slate-50 transition">💾</button>
+            <button onclick="document.getElementById('importInput').click()" title="Cargar" class="p-3 bg-white border rounded-2xl shadow-sm hover:bg-slate-50 transition">📂</button>
             <input type="file" id="importInput" class="hidden" accept=".json" onchange="importarBackup(event)">
         </div>
     </header>
@@ -37,7 +37,7 @@
                 <input type="text" id="contact" placeholder="Responsable" class="p-4 bg-slate-50 rounded-2xl outline-none text-sm">
                 <input type="text" id="loc" placeholder="Ubicación" class="p-4 bg-slate-50 rounded-2xl outline-none text-sm">
             </div>
-            <button type="submit" class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-indigo-600 transition-all shadow-xl">INICIAR SEGUIMIENTO</button>
+            <button type="submit" class="w-full bg-slate-900 text-white font-black py-4 rounded-2xl hover:bg-indigo-600 transition-all shadow-xl uppercase text-xs tracking-widest">Iniciar Seguimiento</button>
         </form>
     </div>
 
@@ -61,19 +61,13 @@
                 contact: document.getElementById('contact').value,
                 loc: document.getElementById('loc').value,
                 status: PHASES[0],
-                tipoContenedor: '',
+                detalleContenedores: [],
                 lastMove: Date.now(),
                 dates: { [PHASES[0]]: new Date().toLocaleDateString('es-MX') }
             };
             ops.unshift(newOp);
             save();
             e.target.reset();
-        };
-
-        window.editDate = (id, phase) => {
-            const op = ops.find(o => o.id === id);
-            const newVal = prompt(`Editar fecha para ${phase}:`, op.dates[phase] || "--/--/--");
-            if(newVal) { op.dates[phase] = newVal; save(); }
         };
 
         window.advance = (id) => {
@@ -83,20 +77,30 @@
             if (idx < PHASES.length - 1) {
                 const nextPhase = PHASES[idx + 1];
 
-                // Lógica Especial: Contenedores
+                // LÓGICA DE CONTENEDORES (GRANDE / PEQUEÑO CON CANTIDADES)
                 if (nextPhase === 'Contenedores') {
                     const esGrande = confirm("¿El contenedor es GRANDE?\n(OK = GRANDE / Cancelar = PEQUEÑO)");
+                    
                     if (esGrande) {
-                        op.tipoContenedor = "GRANDE 📦";
+                        const cant = prompt("¿Cuántos contenedores Grandes (Beige)?", "1");
+                        op.detalleContenedores.push({ tipo: "GRANDE", color: "Beige", cant: cant || "1" });
                     } else {
-                        const color = prompt("Contenedor PEQUEÑO. ¿Qué COLOR es?", "Naranja");
-                        op.tipoContenedor = `PEQUEÑO (${color || 'N/A'}) 🏷️`;
+                        let agregarMas = true;
+                        while(agregarMas) {
+                            const color = prompt("Contenedor PEQUEÑO. ¿Qué COLOR es?", "Naranja");
+                            const cant = prompt(`¿Cuántos de color ${color || 'Naranja'}?`, "1");
+                            op.detalleContenedores.push({ 
+                                tipo: "PEQUEÑO", 
+                                color: color || "Naranja", 
+                                cant: cant || "1" 
+                            });
+                            agregarMas = confirm("¿Deseas agregar OTRO COLOR de contenedor pequeño?");
+                        }
                     }
                 }
 
-                // Lógica Especial: Cierre
                 if (nextPhase === 'Cierre') {
-                    op.kilos = prompt("Campaña Finalizada. ¿Cuántos KILOS se lograron?", "0");
+                    op.kilos = prompt("Campaña Finalizada. ¿Kilos totales?", "0");
                     op.end = new Date().toISOString();
                 }
 
@@ -107,25 +111,39 @@
             }
         };
 
+        window.editDate = (id, phase) => {
+            const op = ops.find(o => o.id === id);
+            const newVal = prompt(`Editar fecha para ${phase}:`, op.dates[phase] || "--/--/--");
+            if(newVal) { op.dates[phase] = newVal; save(); }
+        };
+
         function remove(id) {
-            if(confirm("¿Eliminar registro operativo?")) { ops = ops.filter(o => o.id !== id); save(); }
+            if(confirm("¿Eliminar registro?")) { ops = ops.filter(o => o.id !== id); save(); }
         }
 
         function render() {
             const active = document.getElementById('active-list');
             const history = document.getElementById('history-list');
             active.innerHTML = '<h2 class="text-xs font-black text-slate-400 mb-6 uppercase tracking-widest">🚀 Campañas Activas</h2>';
-            history.innerHTML = '<h2 class="text-xs font-black text-slate-300 mb-6 uppercase tracking-widest italic">📂 Historial de Éxito</h2>';
+            history.innerHTML = '<h2 class="text-xs font-black text-slate-300 mb-6 uppercase tracking-widest italic font-serif">📂 Historial Operativo</h2>';
 
             ops.forEach(o => {
                 const isFinal = o.status === 'Cierre';
+                
+                // Generar etiquetas de contenedores
+                const inventarioHtml = o.detalleContenedores.map(c => 
+                    `<span class="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-black px-2 py-1 rounded-md border border-indigo-100 mr-1 mb-1 italic">
+                        ${c.cant} ${c.tipo} (${c.color})
+                    </span>`
+                ).join('');
+
                 const cardHtml = `
                     <div class="camp-card p-6 shadow-xl shadow-slate-200/50 mb-6 border-t-4 ${isFinal ? 'border-emerald-400' : 'border-indigo-400'}">
                         <button onclick="remove(${o.id})" class="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition">✕</button>
                         <div class="mb-4 pr-10">
                             <h3 class="text-xl font-black text-slate-900 leading-tight">${o.name}</h3>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase mt-1">📍 ${o.loc} | 👤 ${o.contact}</p>
-                            ${o.tipoContenedor ? `<div class="mt-3 text-[10px] font-black text-indigo-700 bg-indigo-50 w-max px-3 py-1 rounded-lg border border-indigo-100">${o.tipoContenedor}</div>` : ''}
+                            <p class="text-[10px] font-bold text-slate-400 uppercase mt-1 mb-3">📍 ${o.loc} | 👤 ${o.contact}</p>
+                            <div class="flex flex-wrap">${inventarioHtml}</div>
                         </div>
                         <div class="flex gap-1 mb-6 overflow-x-auto pb-2">
                             ${PHASES.map(p => {
@@ -143,10 +161,10 @@
                         ` : `
                             <div class="bg-emerald-50 p-4 rounded-2xl flex justify-between items-center border border-emerald-100">
                                 <div>
-                                    <p class="text-[9px] font-black text-emerald-600 uppercase">Resultado Operativo</p>
-                                    <p class="text-lg font-black text-slate-800">${o.kilos} Kg Recolectados</p>
+                                    <p class="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Recolección Total</p>
+                                    <p class="text-lg font-black text-slate-800">${o.kilos} Kg</p>
                                 </div>
-                                <span class="text-2xl">🏆</span>
+                                <span class="text-2xl">🚛</span>
                             </div>
                         `}
                     </div>`;
@@ -155,24 +173,16 @@
             });
         }
 
-        // --- RESPALDOS ---
         function exportarBackup() {
-            if (ops.length === 0) return alert("No hay datos para guardar.");
             const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(JSON.stringify(ops));
             const link = document.createElement('a');
             link.setAttribute('href', dataUri);
-            link.setAttribute('download', `Logistica_Backup_${new Date().toLocaleDateString()}.json`);
+            link.setAttribute('download', `Logistica_Puebla_Backup.json`);
             link.click();
         }
         function importarBackup(event) {
             const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    ops = JSON.parse(e.target.result);
-                    save();
-                    alert("Datos cargados correctamente.");
-                } catch(err) { alert("Archivo no válido."); }
-            };
+            reader.onload = (e) => { ops = JSON.parse(e.target.result); save(); };
             reader.readAsText(event.target.files[0]);
         }
 
