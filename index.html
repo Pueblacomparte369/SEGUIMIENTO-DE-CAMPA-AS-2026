@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logística Inventario - Puebla Comparte</title>
+    <title>Logística Híbrida - Puebla Comparte</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
     <style>
@@ -21,7 +21,7 @@
     <header class="mb-10 flex justify-between items-center">
         <div>
             <h1 class="text-3xl font-black tracking-tighter text-slate-900">Logística Puebla</h1>
-            <p class="text-indigo-600 font-bold text-[10px] uppercase tracking-widest">Control de Inventario y Carga</p>
+            <p class="text-indigo-600 font-bold text-[10px] uppercase tracking-widest">Gestión de Carga Híbrida</p>
         </div>
         <div class="flex gap-2">
             <button onclick="exportarBackup()" title="Respaldo" class="p-3 bg-white border rounded-2xl shadow-sm hover:bg-slate-50 transition">💾</button>
@@ -77,25 +77,24 @@
             if (idx < PHASES.length - 1) {
                 const nextPhase = PHASES[idx + 1];
 
-                // LÓGICA DE CONTENEDORES (GRANDE / PEQUEÑO CON CANTIDADES)
+                // LÓGICA DE CONTENEDORES HÍBRIDA
                 if (nextPhase === 'Contenedores') {
-                    const esGrande = confirm("¿El contenedor es GRANDE?\n(OK = GRANDE / Cancelar = PEQUEÑO)");
-                    
-                    if (esGrande) {
-                        const cant = prompt("¿Cuántos contenedores Grandes (Beige)?", "1");
-                        op.detalleContenedores.push({ tipo: "GRANDE", color: "Beige", cant: cant || "1" });
-                    } else {
-                        let agregarMas = true;
-                        while(agregarMas) {
-                            const color = prompt("Contenedor PEQUEÑO. ¿Qué COLOR es?", "Naranja");
-                            const cant = prompt(`¿Cuántos de color ${color || 'Naranja'}?`, "1");
-                            op.detalleContenedores.push({ 
-                                tipo: "PEQUEÑO", 
-                                color: color || "Naranja", 
-                                cant: cant || "1" 
-                            });
-                            agregarMas = confirm("¿Deseas agregar OTRO COLOR de contenedor pequeño?");
+                    let agregando = true;
+                    while(agregando) {
+                        const opcion = prompt("¿Qué tipo de contenedor deseas agregar?\n1. Plegable Beige\n2. Pequeño (Color)");
+                        
+                        if (opcion === "1") {
+                            const cant = prompt("¿Cuántos PLEGABLES BEIGE?", "1");
+                            op.detalleContenedores.push({ tipo: "Plegable Beige", cant: cant || "1" });
+                        } else if (opcion === "2") {
+                            const color = prompt("Color del contenedor PEQUEÑO:", "Naranja");
+                            const cant = prompt(`¿Cuántos Pequeños de color ${color || 'Naranja'}?`, "1");
+                            op.detalleContenedores.push({ tipo: `Pequeño (${color || 'Naranja'})`, cant: cant || "1" });
+                        } else {
+                            alert("Opción no válida.");
                         }
+                        
+                        agregando = confirm("¿Deseas agregar OTRO TIPO o COLOR de contenedor a esta campaña?");
                     }
                 }
 
@@ -125,15 +124,14 @@
             const active = document.getElementById('active-list');
             const history = document.getElementById('history-list');
             active.innerHTML = '<h2 class="text-xs font-black text-slate-400 mb-6 uppercase tracking-widest">🚀 Campañas Activas</h2>';
-            history.innerHTML = '<h2 class="text-xs font-black text-slate-300 mb-6 uppercase tracking-widest italic font-serif">📂 Historial Operativo</h2>';
+            history.innerHTML = '<h2 class="text-xs font-black text-slate-300 mb-6 uppercase tracking-widest italic font-serif">📂 Historial de Cierres</h2>';
 
             ops.forEach(o => {
                 const isFinal = o.status === 'Cierre';
                 
-                // Generar etiquetas de contenedores
                 const inventarioHtml = o.detalleContenedores.map(c => 
                     `<span class="inline-block bg-indigo-50 text-indigo-700 text-[10px] font-black px-2 py-1 rounded-md border border-indigo-100 mr-1 mb-1 italic">
-                        ${c.cant} ${c.tipo} (${c.color})
+                        ${c.cant} x ${c.tipo}
                     </span>`
                 ).join('');
 
@@ -161,7 +159,7 @@
                         ` : `
                             <div class="bg-emerald-50 p-4 rounded-2xl flex justify-between items-center border border-emerald-100">
                                 <div>
-                                    <p class="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">Recolección Total</p>
+                                    <p class="text-[9px] font-black text-emerald-600 uppercase">Total Recolectado</p>
                                     <p class="text-lg font-black text-slate-800">${o.kilos} Kg</p>
                                 </div>
                                 <span class="text-2xl">🚛</span>
@@ -177,7 +175,7 @@
             const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(JSON.stringify(ops));
             const link = document.createElement('a');
             link.setAttribute('href', dataUri);
-            link.setAttribute('download', `Logistica_Puebla_Backup.json`);
+            link.setAttribute('download', `Logistica_Backup.json`);
             link.click();
         }
         function importarBackup(event) {
